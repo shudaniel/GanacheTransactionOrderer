@@ -6,8 +6,8 @@ const files = require('./lib/files');
 const inquirer  = require('./lib/inquirer');
 const eth = require('./lib/ethereum');
 const http = require('http');
-
-
+const _ = require("lodash");
+var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
@@ -69,8 +69,29 @@ const run = async () => {
     host: "127.0.0.1",
   }
 
+  var forwarding_options = {
+    port: 9545,
+    host: "127.0.0.1",
+  }
+
   var server = http.createServer(function(request, response) {
+    // console.log(request);
+    // Take this request and forward it to the blockchain
+    var client = new XMLHttpRequest();
     var method = request.method;
+    console.log(request)
+    client.open(method, forwarding_options.host + ":" + forwarding_options.port);
+
+    // Set the header
+    client.setRequestHeader("content-type", request.headers["content-type"]);
+
+    client.onreadystatechange = function () {
+      // Request finished. Do processing here.
+      if (client.readyState === 4) {
+        console.log("Received Respond");
+        console.log(client.response);
+      }
+    };
     var body = [];
 
     request
@@ -82,55 +103,70 @@ const run = async () => {
         // At this point, we have the headers, method, url and body, and can now
         // do whatever we need to in order to respond to this request.
 
-        console.log("Body:", body);
-        const headers = createCORSResponseHeaders(method, request.headers);
 
-        switch (method) {
-          case "POST":
-            var payload;
-            try {
-              payload = JSON.parse(body);
-            } catch (e) {
-              headers["Content-Type"] = "text/plain";
-              sendResponse(response, 400, headers, "400 Bad Request");
-              return;
-            }
+        client.send(body);
 
-            // Log messages that come into the TestRPC via http
-            if (payload instanceof Array) {
-              // Batch request
-              for (var i = 0; i < payload.length; i++) {
-                var item = payload[i];
-                console.log(item.method);
-              }
-            } else {
-              console.log(payload.method);
-            }
 
-            // http connections do not support subscriptions
-            if (payload.method === "eth_subscribe" || payload.method === "eth_unsubscribe") {
-              headers["Content-Type"] = "application/json";
-              sendResponse(response, 400, headers, "notifications not supported: " + payload.id);
-              break;
-            }
+        
+        // console.log("Body:", body);
+        // const headers = createCORSResponseHeaders(method, request.headers);
 
-            provider.send(payload, function(_, result) {
-              headers["Content-Type"] = "application/json";
-              sendResponse(response, 200, headers, JSON.stringify(result));
-            });
+        // switch (method) {
+        //   case "POST":
+        //     var payload;
+        //     try {
+        //       payload = JSON.parse(body);
+        //     } catch (e) {
+        //       headers["Content-Type"] = "text/plain";
+        //       sendResponse(response, 400, headers, "400 Bad Request");
+        //       return;
+        //     }
 
-            break;
-          case "OPTIONS":
-            sendResponse(response, 204, headers);
-            break;
-          default:
-            headers["Content-Type"] = "text/plain";
-            sendResponse(response, 400, headers, "400 Bad Request");
-            break;
-        }
+        //     // Log messages that come into the TestRPC via http
+        //     if (payload instanceof Array) {
+        //       // Batch request
+        //       for (var i = 0; i < payload.length; i++) {
+        //         var item = payload[i];
+        //         console.log(item.method);
+        //       }
+        //     } else {
+        //       console.log(payload.method);
+        //     }
+
+        //     // http connections do not support subscriptions
+        //     if (payload.method === "eth_subscribe" || payload.method === "eth_unsubscribe") {
+        //       headers["Content-Type"] = "application/json";
+        //       sendResponse(response, 400, headers, rpcError(payload.id, -32000, "notifications not supported"));
+        //       break;
+        //     }
+
+        //     const externalize = function(payload) {
+        //       return _.cloneDeep(payload);
+        //     };
+          
+        //     if (Array.isArray(payload)) {
+        //       payload = payload.map(externalize);
+        //     } else {
+        //       payload = externalize(payload);
+        //     }
+            
+
+        //     // Send back an OK message
+        //     headers["Content-Type"] = "application/json";
+        //     sendResponse(response, 200, headers, JSON.stringify(payload));
+
+        //     break;
+        //   case "OPTIONS":
+        //     sendResponse(response, 204, headers);
+        //     break;
+        //   default:
+        //     headers["Content-Type"] = "text/plain";
+        //     sendResponse(response, 400, headers, "400 Bad Request");
+        //     break;
+        // }
       });
   });
-  console.log(server);
+  // console.log(server);
   server.listen(options, function() {
     console.log("Listening on " + options.host + ":" + options.port);
   });
