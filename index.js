@@ -14,6 +14,9 @@ const run = async () => {
     else if (action.index === "Pop queue") {
       await eth.popQueue();
     }
+    else if (action.index === "Flip processing bit") {
+      await eth.flipBit();
+    }
   }
 };
   
